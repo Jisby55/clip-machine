@@ -1,0 +1,29 @@
+# --- never commit: keys, logins, your personal setup ---
+secrets.env
+*.env
+!secrets.env.example
+profile.json
+machine_config.json
+*_token.json
+*client_secret*.json
+.client_secret*
+PRIVATE-tokens/
+# --- the bot's brain/data (personal) ---
+*.db
+*.db-journal
+memory.md
+memory.md.bak
+scoreboard.md
+weekly_report.md
+recent_replies.json
+health.json
+tiktok_captions.txt
+gpu_override.txt
+voice_ref.wav
+# --- generated media, logs, environments ---
+media/
+*.log
+__pycache__/
+.venv/
+voice_env/
+.DS_Store

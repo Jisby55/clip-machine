@@ -1,0 +1,52 @@
+{
+  "_help": "Copy this file to profile.json and fill it in. Everything personal lives here; the code has nothing hard-coded.",
+  "creator_name": "YourName",
+  "owner_name": "YourFirstName",
+  "niche": "gaming/comedy",
+  "youtube_handle": "@YourChannel",
+  "youtube_channel_id": "UC...your main channel id...",
+  "shorts_channel_id": "",
+  "_shorts_help": "Blank = upload Shorts to the main channel. Find a channel ID: YouTube > your channel > About > Share > Copy channel ID.",
+  "threads_username": "",
+  "instagram_username": "",
+  "facebook_page_url": "",
+  "brand_hashtag": "",
+  "threads_app_id": "",
+  "_threads_app_id_help": "Meta developer app > Use cases > Access the Threads API > Settings > Threads app ID",
+  "lore": [
+    "Example: Bob the Knight",
+    "Example: the cursed chair"
+  ],
+  "_lore_help": "Your recurring characters / running jokes. The bot uses them in posts and keeps them out of 'trending' posts.",
+  "series_keywords": [],
+  "outreach_topics": [
+    "gaming memes",
+    "PC gaming",
+    "indie games",
+    "gamer humor"
+  ],
+  "games": [
+    [
+      "minecraft",
+      "#Minecraft",
+      "Minecraft"
+    ]
+  ],
+  "_games_help": "Games you play: [regex that finds it in titles/speech, hashtag, name people search]. Common games are built in.",
+  "tag_ideas": [
+    "Gaming",
+    "Gaming Memes",
+    "Gamers",
+    "PC Gaming",
+    "YouTuber",
+    "Memes",
+    "Video Games"
+  ],
+  "series": [
+    [
+      "Weekly Rage Report",
+      "A fake breaking-news update about the most rage-inducing thing that happened in your games this week."
+    ]
+  ],
+  "sample_voice_line": "okay chat, you are NOT ready for this one"
+}

@@ -1,0 +1,65 @@
+{
+  "_comment": "Clip Machine settings. Copy to machine_config.json (setup does it for you). The machine re-reads it every run.",
+  "source_channel_id": "",
+  "shorts_channel_id": "",
+  "instagram_id": "",
+  "gpu_mode": "auto",
+  "_gpu_mode_help": "auto = heavy work only when no game is running (light_games.txt are ignored); on = always allowed; off = never",
+  "platforms": {
+    "youtube": {
+      "enabled": false,
+      "audited": false,
+      "review_mode": false,
+      "start_per_day": 1,
+      "max_per_day": 2,
+      "min_hours_between": 6
+    },
+    "tiktok": {
+      "enabled": false,
+      "audited": false,
+      "start_per_day": 1,
+      "max_per_day": 2,
+      "min_hours_between": 6
+    },
+    "instagram": {
+      "enabled": false,
+      "audited": false,
+      "start_per_day": 1,
+      "max_per_day": 2,
+      "min_hours_between": 8
+    },
+    "threads": {
+      "per_day": 3,
+      "min_hours_between": 3
+    },
+    "facebook": {
+      "enabled": false,
+      "start_per_day": 1,
+      "max_per_day": 2,
+      "min_hours_between": 8
+    }
+  },
+  "_platforms_help": "Everything starts OFF. Turn a platform on once its keys are in. youtube review_mode=true (after the audit): uploads stay private so you check them and hit publish yourself. audited=false: YouTube uploads stay PRIVATE and TikTok goes to your INBOX (you tap post). Flip to true only after the audit is approved.",
+  "downloads_per_run": 3,
+  "max_downloaded_sources": 20,
+  "active_sources": 6,
+  "delete_used_sources": true,
+  "_sources_help": "The bot works through your WHOLE channel: a few videos downloaded at a time, used-up ones deleted to save space.",
+  "clip_seconds": [
+    20,
+    55
+  ],
+  "ready_queue": 3,
+  "jitter_minutes": 45,
+  "ollama_model": "qwen3:8b",
+  "ntfy_topic": "",
+  "alerts_enabled": true,
+  "ai_video": false,
+  "instagram_stories": false,
+  "ai_min_share": 0.1,
+  "ai_max_share": 0.4,
+  "self_critique": true,
+  "content_mode": "mix",
+  "ai_quiet_minutes": 90,
+  "_ids_help": "Leave the IDs blank to use the ones in profile.json. ntfy_topic is created for you (a random private phone-alert channel)."
+}

@@ -1,0 +1,10 @@
+requests
+youtube-transcript-api
+yt-dlp
+faster-whisper
+google-api-python-client
+google-auth-oauthlib
+psutil
+imageio-ffmpeg
+numpy
+pillow

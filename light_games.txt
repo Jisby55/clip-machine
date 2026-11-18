@@ -1,0 +1,6 @@
+# Games listed here do NOT block GPU work (put the .exe name, one per line, lowercase).
+# Everything else that looks like a game (big GPU use, or a known game folder like steamapps)
+# pauses rendering until you close it.
+# Example:
+# balatro.exe
+# terraria.exe
