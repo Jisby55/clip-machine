@@ -32,9 +32,21 @@ def config():
         cfg = json.load(f)
     import creator_profile as profile
     for key, pkey in (("source_channel_id", "youtube_channel_id"), ("shorts_channel_id", "shorts_channel_id")):
-        if not cfg.get(key):
-            cfg[key] = profile.get(pkey) or (profile.get("youtube_channel_id") if key == "shorts_channel_id" else "") or ""
+        cfg[key] = profile.channel_id(cfg.get(key)) or profile.get(pkey) or ""
+    # Shorts go to whatever channel you connected (Settings -> Connect YouTube); blank = the main channel
+    cfg["shorts_channel_id"] = cfg["shorts_channel_id"] or cfg["source_channel_id"]
     return cfg
+
+
+def save_setting(key, value):
+    """Change ONE setting in machine_config.json (without copying profile values into it)."""
+    config()  # makes the file on first run
+    with open(CONFIG_FILE, encoding="utf-8") as f:
+        raw = json.load(f)
+    raw[key] = value
+    with open(CONFIG_FILE + ".tmp", "w", encoding="utf-8") as f:
+        json.dump(raw, f, indent=2)
+    os.replace(CONFIG_FILE + ".tmp", CONFIG_FILE)
 
 
 def _now():

@@ -23,9 +23,7 @@ def topic():
     t = cfg.get("ntfy_topic")
     if not t:
         t = "clip-machine-" + secrets.token_hex(5)
-        cfg["ntfy_topic"] = t
-        with open(mm_safety.CONFIG_FILE, "w", encoding="utf-8") as f:
-            json.dump(cfg, f, indent=2)
+        mm_safety.save_setting("ntfy_topic", t)
     return t
 
 

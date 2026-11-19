@@ -6,9 +6,13 @@ set PYTHONIOENCODING=utf-8
 where python >nul 2>nul || (echo Python is not installed or not on PATH. Install it from python.org and tick "Add to PATH". & pause & exit /b)
 where ollama >nul 2>nul || (echo Ollama is not on PATH. Open the Ollama app first. & pause & exit /b)
 python -c "import requests, youtube_transcript_api, yt_dlp, faster_whisper, googleapiclient, google_auth_oauthlib, psutil, imageio_ffmpeg, numpy, PIL" 2>nul || (echo Installing the machine's Python packages, one time... & python -m pip install -r requirements.txt)
-python -c "import nvidia.cublas, nvidia.cudnn" 2>nul || (echo Installing NVIDIA libraries so clips render on the GPU - about 1 GB, one time... & python -m pip install nvidia-cublas-cu12 "nvidia-cudnn-cu12==9.*")
+where nvidia-smi >nul 2>nul && (python -c "import nvidia.cublas, nvidia.cudnn" 2>nul || (echo Installing NVIDIA libraries so clips render on the GPU - about 1 GB, one time... & python -m pip install nvidia-cublas-cu12 "nvidia-cudnn-cu12==9.*"))
+if not exist profile.json (copy /y profile.example.json profile.json >nul & echo Created profile.json - fill in your name, channel and handles.)
+if not exist machine_config.json copy /y machine_config.example.json machine_config.json >nul
+if not exist secrets.env (copy /y secrets.env.example secrets.env >nul & echo Created secrets.env - paste your keys into it.)
 where deno >nul 2>nul || (echo Installing Deno - the YouTube downloader needs it, one time... & winget install -e --id DenoLand.Deno --accept-source-agreements --accept-package-agreements)
 where cloudflared >nul 2>nul || if not exist "C:\Program Files (x86)\cloudflared\cloudflared.exe" (echo Installing cloudflared - Instagram picture posts need it, one time... & winget install -e --id Cloudflare.cloudflared --accept-source-agreements --accept-package-agreements)
+if "%BOT_MODEL%"=="" for /f "usebackq delims=" %%m in (`python -c "import json;print(json.load(open('machine_config.json')).get('ollama_model') or 'qwen3:8b')"`) do set BOT_MODEL=%%m
 if "%BOT_MODEL%"=="" set BOT_MODEL=qwen3:8b
 ollama show %BOT_MODEL% >nul 2>nul || (echo Downloading %BOT_MODEL% - about 6 GB, one time... & ollama pull %BOT_MODEL%)
 

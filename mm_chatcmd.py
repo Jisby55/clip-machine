@@ -70,7 +70,9 @@ def route(ask, msg, status, memory, history, pending_desc=None):
 def apply_settings(changes):
     """Change allowed settings in machine_config.json. Returns what changed."""
     import mm_safety
-    cfg = mm_safety.config()
+    mm_safety.config()  # makes the file on first run
+    with open(mm_safety.CONFIG_FILE, encoding="utf-8") as f:
+        cfg = json.load(f)  # the file itself (config() would also copy in profile.json values)
     done = []
     for key, val in (changes or {}).items():
         if key not in SETTING_KEYS:
