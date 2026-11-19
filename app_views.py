@@ -867,6 +867,63 @@ def upload_window(app):
     ttk.Button(w, text="⬆  Upload and post", style="Go.TButton", command=go).pack(pady=16)
 
 
+def custom_window(app):
+    """Make content your way: an optional picture/video, optional instructions. Nothing gets posted."""
+    from tkinter import filedialog
+    w = tk.Toplevel(app)
+    w.title("Custom content")
+    w.configure(bg=PANEL)
+    w.geometry(f"{px(620)}x{px(560)}")
+    w.transient(app)
+    pad = {"padx": 16, "anchor": "w"}
+    tk.Label(w, text="CUSTOM CONTENT", bg=PANEL, fg=FG, font=("Segoe UI Semibold", 12)).pack(pady=(14, 2), **pad)
+    tk.Label(w, text="Both boxes are optional. Nothing gets posted: it's saved and opened for you to look at.",
+             bg=PANEL, fg=MUTED, wraplength=px(580), justify="left").pack(**pad)
+    tk.Label(w, text="Picture or video (optional)", bg=PANEL, fg=MUTED).pack(pady=(12, 2), **pad)
+    path = tk.StringVar()
+    row = tk.Frame(w, bg=PANEL)
+    row.pack(fill="x", padx=16)
+    tk.Entry(row, textvariable=path, bg=LINE, fg=FG, insertbackground=FG, relief="flat").pack(side="left", fill="x",
+                                                                                              expand=True, ipady=5)
+
+    def browse():
+        p = filedialog.askopenfilename(parent=w, title="Pick a picture or video", filetypes=[
+            ("Pictures and videos", "*.png *.jpg *.jpeg *.webp *.bmp *.gif *.tif *.tiff "
+                                    "*.mp4 *.mov *.mkv *.webm *.avi *.m4v"), ("All files", "*.*")])
+        if p:
+            path.set(p)
+    ttk.Button(row, text="Browse...", style="Small.TButton", command=browse).pack(side="left", padx=(6, 0))
+    ttk.Button(row, text="Clear", style="Small.TButton", command=lambda: path.set("")).pack(side="left", padx=(6, 0))
+    tk.Label(w, text="What do you want? (optional)", bg=PANEL, fg=MUTED).pack(pady=(12, 2), **pad)
+    desc = tk.Text(w, bg=LINE, fg=FG, insertbackground=FG, relief="flat", height=5, wrap="word", font=("Segoe UI", 11))
+    desc.pack(fill="x", padx=16)
+    tk.Label(w, bg=PANEL, fg=MUTED, justify="left", wraplength=px(580), text=(
+        "• File + words: makes the edits you describe (\"cut it to the funny part, add captions, make it vertical\").\n"
+        "• File only: the AI picks the edits.\n"
+        "• Words only: the AI makes a new picture or AI video from them.\n"
+        "• Both empty: something random.\n\n"
+        "Crops, looks, text, trimming, speed and captions work right away. Edits that change what's IN a picture, AI "
+        "restyles of videos and brand-new AI pictures/videos need ComfyUI (see the README); without it you get the "
+        "closest thing it can do and a note on what to install.")).pack(pady=(10, 0), **pad)
+
+    def go():
+        p = path.get().strip().strip('"')
+        if p and not os.path.exists(p):
+            return messagebox.showinfo("Custom content", "Can't find that file. Pick it again or press Clear.", parent=w)
+        text = desc.get("1.0", "end-1c").strip()
+        force = app._game_check("Making custom content", "1-15")
+        if force is None:
+            return
+        os.makedirs(os.path.join("media", "custom"), exist_ok=True)
+        job = os.path.join("media", "custom", "job.json")
+        with open(job, "w", encoding="utf-8") as fh:
+            json.dump({"media": p or None, "text": text}, fh)
+        what = os.path.basename(p) if p else (text[:40] if text else "random")
+        w.destroy()
+        app.run(["machine.py", "custom", job], title=f"Custom: {what}", force_gpu=force)
+    ttk.Button(w, text="✨  Generate", style="Go.TButton", command=go).pack(pady=16)
+
+
 # ======================= Queue =======================
 class QueueTab:
     def __init__(self, app, nb):
