@@ -61,5 +61,11 @@
   "self_critique": true,
   "content_mode": "mix",
   "ai_quiet_minutes": 90,
+  "vision_model": "",
+  "image_edit_model": "",
+  "image_edit_clip": "",
+  "image_edit_vae": "",
+  "image_edit_lora": "",
+  "_custom_help": "Custom content (upload + describe). vision_model: an Ollama model that can see pictures (blank = use any installed one). image_edit_*: Qwen-Image-Edit file names in ComfyUI if yours differ from the README (blank = defaults).",
   "_ids_help": "Leave the IDs blank to use the ones in profile.json. ntfy_topic is created for you (a random private phone-alert channel)."
 }

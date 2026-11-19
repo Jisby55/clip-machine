@@ -239,6 +239,7 @@ class App(tk.Tk):
         head("POST & MAKE")
         btn("📤  Post now...", self.post_menu)
         btn("🎬  Make content (no posting)...", self.make_menu)
+        btn("✨  Custom: upload + describe...", lambda: views.custom_window(self))
         btn("📥  Get more of my videos", self.fetch)
         head("WHAT TO MAKE")
         self.mode_names = ("My stuff", "Mix", "Trending (none of mine)")
@@ -815,7 +816,9 @@ class App(tk.Tk):
                      ("ALL platforms", lambda: go("all", "ALL platforms"))])
 
     def make_menu(self):
-        self._popup([("A clip (Short/TikTok)", lambda: self.run(["machine.py", "produce"], title="Make a clip")),
+        self._popup([("✨ Custom: upload + describe...", lambda: views.custom_window(self)),
+                     ("-", None),
+                     ("A clip (Short/TikTok)", lambda: self.run(["machine.py", "produce"], title="Make a clip")),
                      ("A meme", lambda: self.run(["machine.py", "test-picture", "meme"], title="Make a meme")),
                      ("A carousel", lambda: self.run(["machine.py", "test-picture", "carousel"], title="Make a carousel")),
                      ("An AI image", lambda: self.run(["machine.py", "test-picture", "ai_image"], title="Make an AI image")),

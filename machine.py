@@ -13,6 +13,7 @@ One brain (threadsbot.db + memory.md + channel/keyword files), many platforms.
   python machine.py setup-tiktok    connect TikTok (one time)
   python machine.py setup-instagram check the Instagram token (one time, after putting INSTAGRAM_TOKEN in secrets.env)
   python machine.py test-picture meme|carousel|ai_image   make one Instagram picture locally to look at
+  python machine.py custom [picture/video] [what you want]   make custom content (both optional; see mm_custom.py)
   python machine.py gpu auto|on|off set the GPU toggle
 
 Platforms not connected yet are simply skipped, so Threads keeps working no matter what.
@@ -1733,6 +1734,31 @@ if __name__ == "__main__":
     elif cmd == "setup-instagram":
         import mm_instagram
         mm_instagram.setup()
+    elif cmd == "custom":  # upload + describe: python machine.py custom job.json | custom [file] [what you want]
+        import mm_custom
+        media, text = None, ""
+        rest = sys.argv[2:]
+        if rest and rest[0].lower().endswith(".json") and os.path.exists(rest[0]):
+            with open(rest[0], encoding="utf-8") as fh:
+                job = json.load(fh)
+            media, text = job.get("media") or None, job.get("text") or ""
+        else:
+            if rest and os.path.exists(rest[0]):
+                media, rest = rest[0], rest[1:]
+            text = " ".join(rest)
+        c = con()
+        try:
+            item = mm_custom.make(c, tb.ask, tb.IDENTITY, tb.read_memory(), media, text)
+        except RuntimeError as e:
+            sys.exit(f"\nCouldn't make it: {e}")
+        for pth in item["paths"]:
+            print(f"\nSaved: {os.path.abspath(pth)}")
+        if item.get("caption"):
+            print(f"Caption idea: {item['caption']}")
+        if item.get("note"):
+            print(f"Note: {item['note']}")
+        print("(Nothing was posted.)")
+        compat.open_file(os.path.abspath(item["paths"][0]))
     elif cmd == "test-picture":  # make one Instagram picture locally (no posting) so you can look at it
         import mm_images
         kind = sys.argv[2] if len(sys.argv) > 2 else "meme"

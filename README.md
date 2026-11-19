@@ -83,6 +83,38 @@ In `machine_config.json` (created on the first run), set `"enabled": true` for e
 
 Try **Status** first, then **Post now** on one platform. When everything looks right, use **Autopilot: turn ON**. It runs every 15 minutes in the background.
 
+## Custom content
+
+**✨ Custom: upload + describe** sits under **Make content**. Pick a picture or video, type what you want, and press **Generate**. Both boxes are optional:
+
+| Picture/video | Words | What you get |
+|---|---|---|
+| ✓ | ✓ | Your edits, done to your file |
+| ✓ | – | The AI picks the edits |
+| – | ✓ | A new AI picture or short AI video about it (the AI decides which) |
+| – | – | Something random in your channel's style |
+
+Nothing gets posted. The result is saved in `media/custom/` and opens when it's ready.
+
+**Works out of the box** (no extra installs):
+- Pictures: crop for any platform, rotate/flip, looks (B&W, vintage, vivid, warm, cool, dark, bright, dramatic), brightness/contrast/saturation, sharpen/blur, meme text.
+- Videos: trim, speed, reverse, vertical 9:16, zoom, looks, mute, word-by-word captions and hook text.
+- Words only, without ComfyUI: a text graphic.
+
+**Unlocks when you install it** (the app finds it by itself; until then it does the closest thing and tells you what's missing):
+
+| For | Install | Files (into ComfyUI's `models/` folders) |
+|---|---|---|
+| AI pictures and AI videos from your words | [ComfyUI Desktop](https://www.comfy.org/download) + Z-Image Turbo | `diffusion_models/z_image_turbo_bf16.safetensors`, `text_encoders/qwen_3_4b.safetensors`, `vae/ae.safetensors` |
+| Picture edits that change what's in it ("remove the hat", "make it night", "turn it into a cartoon") | Qwen-Image-Edit 2509 ([files](https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI/tree/main/split_files)) | `diffusion_models/qwen_image_edit_2509_fp8_e4m3fn.safetensors`, `text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors`, `vae/qwen_image_vae.safetensors`. Optional 4-step speed-up (from lightx2v/Qwen-Image-Lightning): `loras/Qwen-Image-Lightning-4steps-V1.0.safetensors` |
+| Turning a video into something else (anime, clay, new scene) and fully-AI videos | Wan 2.2 image-to-video ([files](https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/tree/main/split_files)) | the files listed in `WAN` at the top of `mm_aivideo.py` |
+| Background music | the music model `mm_audio.py` uses | see `mm_audio.py` |
+| Letting the AI *see* your upload when you leave the words empty | any Ollama vision model, e.g. `ollama pull qwen2.5vl:7b` | found automatically, or set `"vision_model"` in `machine_config.json` |
+
+Using different file names? Set `image_edit_model`, `image_edit_clip`, `image_edit_vae` or `image_edit_lora` in `machine_config.json`.
+
+From the command line: `python machine.py custom [picture or video] [what you want]`.
+
 ## Safety
 
 - **Only run one copy at a time.** Two machines on the same accounts will double-post.
