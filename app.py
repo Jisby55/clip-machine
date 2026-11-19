@@ -70,8 +70,33 @@ def already_running():
         return False
 
 
+AGENT = os.path.expanduser("~/Library/LaunchAgents/com.clipmachine.app.plist")
+OS_NAME = "your Mac" if sys.platform == "darwin" else "Windows"
+
+
+def _mac_autostart(on):
+    """Mac: a per-user login item (LaunchAgent) that opens the app when you log in."""
+    import plistlib
+    try:
+        if not on:
+            if os.path.exists(AGENT):
+                os.remove(AGENT)
+            return True
+        os.makedirs(os.path.dirname(AGENT), exist_ok=True)
+        with open(AGENT, "wb") as f:
+            plistlib.dump({"Label": "com.clipmachine.app", "RunAtLoad": True, "WorkingDirectory": HERE,
+                           "ProgramArguments": [sys.executable, os.path.join(HERE, "app.py"), "--startup"],
+                           "EnvironmentVariables": {"PATH": "/opt/homebrew/opt/ffmpeg-full/bin:/opt/homebrew/bin:"
+                                                            "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"}}, f)
+        return True
+    except Exception:
+        return False
+
+
 def set_autostart(on):
-    """Start with Windows (a normal per-user startup entry, same as ticking 'run at startup' in any app)."""
+    """Start when the computer starts (a normal per-user startup entry, same as 'run at login' in any app)."""
+    if sys.platform == "darwin":
+        return _mac_autostart(on)
     try:
         import winreg
         key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run", 0,
@@ -96,9 +121,10 @@ def set_autostart(on):
 
 def autostart_wanted():
     try:
-        return bool(json.loads(read("machine_config.json") or "{}").get("start_with_windows", True))
+        # on by default on Windows (as before); on a Mac only once you turn it on
+        return bool(json.loads(read("machine_config.json") or "{}").get("start_with_windows", sys.platform != "darwin"))
     except Exception:
-        return True
+        return sys.platform != "darwin"
 
 
 class App(tk.Tk):
@@ -804,16 +830,9 @@ class App(tk.Tk):
         self._menu(items).tk_popup(self.winfo_pointerx(), self.winfo_pointery())
 
     def post_menu(self):
-        def go(t, name):
-            if self.confirm(name):
-                self.run(["machine.py", "force", t], live=True, title=f"Post now: {name}")
-        self._popup([("Threads", lambda: go("threads", "Threads")),
-                     ("YouTube Short", lambda: go("youtube", "YouTube")),
-                     ("Instagram", lambda: go("instagram", "Instagram")),
-                     ("Facebook Reel", lambda: go("facebook", "Facebook")),
-                     ("TikTok (gets the video + caption ready in the TikTok tab)", self.tiktok_tab.make_one),
-                     ("-", None),
-                     ("ALL platforms", lambda: go("all", "ALL platforms"))])
+        views.pick_platforms(self, "Post now", "post", lambda ps: self.run(
+            ["machine.py", "force", ",".join(ps)], live=True, title=f"Post now: {', '.join(ps)}"),
+            note="Each platform gets its own fresh post right now, ignoring the schedule. This posts for real.")
 
     def make_menu(self):
         self._popup([("✨ Custom: upload + describe...", lambda: views.custom_window(self)),
@@ -903,7 +922,7 @@ class App(tk.Tk):
                 ("Raw settings file", lambda: notepad("machine_config.json")),
             ]),
             ("-", None),
-            ("Start with Windows: turn " + ("OFF" if autostart_wanted() else "ON"), self.toggle_autostart),
+            (f"Start with {OS_NAME}: turn " + ("OFF" if autostart_wanted() else "ON"), self.toggle_autostart),
             ("Autopilot: turn ON / fix the schedule", lambda: self.run_ps("autopilot-setup.ps1", "Fix / restart autopilot schedule")),
             ("Autopilot: turn OFF", self._autopilot_off),
         ])
@@ -940,15 +959,16 @@ class App(tk.Tk):
         except Exception:
             cfg = {}
         if not cfg:
-            return messagebox.showerror("Start with Windows", "Couldn't read the settings file.")
-        cfg["start_with_windows"] = not cfg.get("start_with_windows", True)
+            return messagebox.showerror(f"Start with {OS_NAME}", "Couldn't read the settings file.")
+        cfg["start_with_windows"] = not autostart_wanted()
         with open("machine_config.json.tmp", "w", encoding="utf-8") as f:
             json.dump(cfg, f, indent=2)
         os.replace("machine_config.json.tmp", "machine_config.json")
         ok = set_autostart(cfg["start_with_windows"])
-        messagebox.showinfo("Start with Windows", ("Clip Machine now opens (minimized) when Windows starts."
-                                                   if cfg["start_with_windows"] else "It no longer starts with Windows.")
-                            if ok else "Couldn't change the Windows startup entry.")
+        messagebox.showinfo(f"Start with {OS_NAME}", (f"Clip Machine now opens (minimized) when {OS_NAME} starts."
+                                                       if cfg["start_with_windows"] else
+                                                       f"It no longer starts with {OS_NAME}.")
+                            if ok else "Couldn't change the startup entry.")
 
     def toggle_autopilot(self):
         """Same as autopilot-ON.bat (turn on) / removing the scheduled tasks (turn off), from inside the app."""

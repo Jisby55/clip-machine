@@ -47,7 +47,8 @@ bash mac/setup_mac.sh
 Copy `profile.example.json` to `profile.json` (Mac setup does this for you) and fill it in:
 
 - `creator_name`, `owner_name`, `niche`
-- `youtube_channel_id`: your main channel. The clips come from here.
+- `youtube_channel_id` **or** `youtube_handle` (like `@MyChannel`): your main channel. The clips come from here. With only a handle, the machine looks up the ID itself.
+- `shorts_channel_id`: leave it blank. It's set to whatever channel you pick when you connect YouTube.
 - `threads_username`, `instagram_username`, `facebook_page_url`
 - `lore`: your recurring characters and running jokes
 - `games`, `outreach_topics`, `series`: optional, but they make the content feel like yours
@@ -66,7 +67,7 @@ Copy `secrets.env.example` to `secrets.env` and paste your keys. On a Mac, `bash
 | Platform | What you need | Where |
 |---|---|---|
 | **Threads** | `THREADS_TOKEN` (plus `THREADS_APP_SECRET` for the full login) | Create a Meta developer app with the **Threads API** use case. Add `https://localhost:8723/threads` as a Redirect Callback URL, then run `python mac/threads-login.py`. That login includes mentions and keyword search, which the quick "Generate Access Token" button leaves out. |
-| **YouTube** | `youtube_client_secret.json` | Google Cloud Console: enable YouTube Data API v3, then create an OAuth client ID of type "Desktop app" and download it into this folder. Run `python machine.py setup-youtube`. |
+| **YouTube** | `youtube_client_secret.json` | Google Cloud Console: enable YouTube Data API v3, then create an OAuth client ID of type "Desktop app" and download it into this folder. Then **Settings → Accounts → Connect YouTube Shorts channel** (or `python machine.py setup-youtube`) and pick **any** channel you own in the browser. Shorts go to that channel. Connect again any time to switch. |
 | **TikTok** | `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET` | TikTok developer portal: create an app and add Login Kit and the Content Posting API. Until TikTok approves it, use the **Sandbox** keys (not Production) and add your account under Sandbox → Target users. Run `python machine.py setup-tiktok`. |
 | **Instagram + Facebook** | `INSTAGRAM_TOKEN` | Meta app with the Instagram API and Pages use cases (a Business or Creator account linked to a Page). Run `python machine.py setup-instagram`. Facebook posting also needs `pages_manage_posts`. |
 
@@ -74,11 +75,13 @@ You don't need every platform. Any platform without keys is skipped.
 
 ### 4. Turn platforms on
 
-In `machine_config.json` (created on the first run), set `"enabled": true` for each platform you've connected. The same file holds posting limits, clip length, GPU mode and the AI model.
+In **Settings** (or `machine_config.json`), turn **On** each platform you've connected. That's where the autopilot posts. The same place holds posting limits, clip length, GPU mode and the AI model.
+
+When you post by hand (**Post now**, **Post this clip now** in the Queue, **Upload a video everywhere**, or after **Custom content**), you tick which platforms it goes to. Only connected platforms that are turned on are listed, and your last pick is remembered.
 
 ### 5. Run it
 
-- **Mac:** double-click `Clip Machine.command`.
+- **Mac:** double-click `Clip Machine.command` (the first time, right-click → Open; if setup hasn't run yet it offers to run it).
 - **Windows:** double-click `windows\Clip Machine.vbs`.
 
 Try **Status** first, then **Post now** on one platform. When everything looks right, use **Autopilot: turn ON**. It runs every 15 minutes in the background.

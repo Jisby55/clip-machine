@@ -2,6 +2,7 @@
 Nothing about a specific creator is hard-coded anywhere else."""
 import json
 import os
+import re
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROFILE_FILE = os.path.join(HERE, "profile.json")
@@ -39,8 +40,39 @@ def load():
         if os.path.exists(path):
             with open(path, encoding="utf-8") as f:
                 data.update({k: v for k, v in json.load(f).items() if not k.startswith("_")})
+    # values copied from profile.example.json but never filled in count as blank
+    for k in ("youtube_channel_id", "shorts_channel_id"):
+        data[k] = channel_id(data.get(k))
+    for k in ("youtube_handle", "threads_username", "instagram_username", "facebook_page_url"):
+        if _placeholder(data.get(k)):
+            data[k] = ""
+    data["lore"] = [x for x in data.get("lore") or [] if isinstance(x, str) and not x.lower().startswith("example:")]
+    if data.get("creator_name") == "YourName":
+        data["creator_name"] = DEFAULTS["creator_name"]
+    if data.get("owner_name") == "YourFirstName":
+        data["owner_name"] = DEFAULTS["owner_name"]
     _cache.update(data)
     return _cache
+
+
+def _placeholder(v):
+    v = str(v or "")
+    return "..." in v or v.lower() in ("@yourchannel", "yourname", "https://www.facebook.com/yourpage")
+
+
+def channel_id(v):
+    """A real YouTube channel ID (UC + 22 characters) or "" (blank, placeholder or a typo)."""
+    v = str(v or "").strip()
+    return v if re.fullmatch(r"UC[A-Za-z0-9_-]{22}", v) else ""
+
+
+def handle():
+    """@handle of the main channel, or ""."""
+    h = str(get("youtube_handle") or "").strip()
+    if not h:
+        return ""
+    h = h.rstrip("/").split("/")[-1]  # a pasted https://www.youtube.com/@Name link works too
+    return h if h.startswith("@") else "@" + h
 
 
 def get(key, default=None):

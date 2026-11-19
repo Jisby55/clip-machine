@@ -21,13 +21,13 @@ CLIENT_FILE = "youtube_client_secret.json"
 TOKEN_FILE = "youtube_token.json"
 
 
-def credentials(interactive=False):
+def credentials(interactive=False, fresh=False):
     from google.auth.transport.requests import Request
     from google.oauth2.credentials import Credentials
 
     # keep whatever scopes the saved login already has (asking for new ones on refresh would break it);
     # new scopes (comment replies) are only requested when you reconnect YouTube
-    creds = Credentials.from_authorized_user_file(TOKEN_FILE) if os.path.exists(TOKEN_FILE) else None
+    creds = Credentials.from_authorized_user_file(TOKEN_FILE) if os.path.exists(TOKEN_FILE) and not fresh else None
     if creds and creds.expired and creds.refresh_token:
         try:
             creds.refresh(Request())
@@ -40,9 +40,11 @@ def credentials(interactive=False):
     if (not creds or not creds.valid) and interactive:
         from google_auth_oauthlib.flow import InstalledAppFlow
         if not os.path.exists(CLIENT_FILE):
-            raise SystemExit(f"Missing {CLIENT_FILE}. See the setup steps at the top of mm_youtube.py.")
+            raise SystemExit(f"Missing {CLIENT_FILE} (put it in {os.path.abspath('.')}). See the setup steps at "
+                             "the top of mm_youtube.py.")
         flow = InstalledAppFlow.from_client_secrets_file(CLIENT_FILE, SCOPES)
-        creds = flow.run_local_server(port=0, prompt="consent")
+        print("A browser window is opening: sign in and pick the channel your Shorts should go to.", flush=True)
+        creds = flow.run_local_server(port=0, prompt="consent select_account")
     if creds and creds.valid:
         with open(TOKEN_FILE, "w") as f:
             f.write(creds.to_json())

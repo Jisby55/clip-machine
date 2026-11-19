@@ -308,6 +308,16 @@ def refresh_channel(con, force=False):
     if last and not force and have_uploads:
         if datetime.now(timezone.utc) - datetime.fromisoformat(last[0]) < timedelta(hours=CHANNEL_CHECK_HOURS):
             return
+    global CHANNEL_ID, CHANNEL_FEED
+    if not CHANNEL_ID:
+        try:
+            import mm_video
+            CHANNEL_ID = mm_video.source_channel()
+        except Exception:
+            CHANNEL_ID = ""
+        if not CHANNEL_ID:
+            return
+        CHANNEL_FEED = f"https://www.youtube.com/feeds/videos.xml?channel_id={CHANNEL_ID}"
     root = None
     # YouTube's feed fails on and off (known issue in 2026): try the channel feed, then the uploads-playlist feed
     for url in (CHANNEL_FEED,

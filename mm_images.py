@@ -23,9 +23,12 @@ import mm_video
 
 OUT = os.path.join("media", "images")
 W, H = 1080, 1350
-FONTS = {"impact": [r"C:\Windows\Fonts\impact.ttf", "/usr/share/fonts/truetype/msttcorefonts/Impact.ttf",
-                    r"C:\Windows\Fonts\arialbd.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"],
-         "bold": [r"C:\Windows\Fonts\arialbd.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"]}
+FONTS = {"impact": [r"C:\Windows\Fonts\impact.ttf", "/System/Library/Fonts/Supplemental/Impact.ttf",
+                    "/usr/share/fonts/truetype/msttcorefonts/Impact.ttf", r"C:\Windows\Fonts\arialbd.ttf",
+                    "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+                    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"],
+         "bold": [r"C:\Windows\Fonts\arialbd.ttf", "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+                  "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"]}
 COMFY_PORTS = (8000, 8188)
 ZIMAGE = {"unet": "z_image_turbo_bf16.safetensors", "clip": "qwen_3_4b.safetensors", "vae": "ae.safetensors"}
 

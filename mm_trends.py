@@ -34,7 +34,7 @@ def refresh(con, force=False):
                                                regionCode="US", maxResults=15).execute()
         found += [("youtube_gaming", it["snippet"]["title"]) for it in r.get("items", [])]
     except (SystemExit, Exception) as e:
-        print(f"[trends: YouTube trending unavailable] {type(e).__name__}")
+        print(f"[trends: YouTube trending unavailable] " + ("YouTube isn't connected" if isinstance(e, SystemExit) else type(e).__name__))
     try:  # Google Trends daily searches: gaming/creator ones, plus fun pop-culture ones for the trending mode
         x = requests.get("https://trends.google.com/trending/rss?geo=US", timeout=20,
                          headers={"User-Agent": "Mozilla/5.0 ClipMachine"}).text
@@ -58,7 +58,7 @@ def refresh(con, force=False):
             if _fun(t + " " + it["snippet"].get("description", "")[:200]):
                 found.append(("pop", t))
     except (SystemExit, Exception) as e:
-        print(f"[trends: YouTube popular unavailable] {type(e).__name__}")
+        print(f"[trends: YouTube popular unavailable] " + ("YouTube isn't connected" if isinstance(e, SystemExit) else type(e).__name__))
     import mm_words
     for url in MEME_FEEDS:  # popular memes right now (best effort; any feed that's down is just skipped)
         try:

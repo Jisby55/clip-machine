@@ -63,6 +63,38 @@ def media_duration(path):
     return int(m.group(1)) * 3600 + int(m.group(2)) * 60 + float(m.group(3)) if m else 0.0
 
 
+_WARNED = {}
+
+
+def source_channel():
+    """Your main channel's ID (clips come from it). From machine_config/profile.json, or looked up once from your
+    @handle and saved. "" when neither is set."""
+    cid = mm_safety.config()["source_channel_id"]
+    if cid:
+        return cid
+    import creator_profile as profile
+    h = profile.handle()
+    if not h:
+        if not _WARNED.get("channel"):
+            _WARNED["channel"] = True
+            print("[no main channel set: put youtube_channel_id or youtube_handle in profile.json]")
+        return ""
+    try:
+        import yt_dlp
+        with yt_dlp.YoutubeDL({"extract_flat": True, "quiet": True, "playlistend": 1}) as y:
+            info = y.extract_info(f"https://www.youtube.com/{h}", download=False) or {}
+        cid = profile.channel_id(info.get("channel_id") or info.get("uploader_id"))
+    except Exception as e:
+        print(f"[couldn't look up {h}: {e}]")
+        return ""
+    if cid:
+        mm_safety.save_setting("source_channel_id", cid)
+        print(f"Found your main channel {h}: {cid}")
+    else:
+        print(f"[couldn't find a YouTube channel called {h}; check youtube_handle in profile.json]")
+    return cid
+
+
 def ensure_tables(con):
     con.execute("""CREATE TABLE IF NOT EXISTS mm_sources (
         video_id TEXT PRIMARY KEY, title TEXT, path TEXT, duration REAL, views INTEGER,
@@ -113,11 +145,13 @@ def index_channel(con, force=False):
     row = con.execute("SELECT value FROM meta WHERE key='library_indexed_at'").fetchone()
     if row and not force and datetime.now(timezone.utc) - datetime.fromisoformat(row[0]) < timedelta(hours=24):
         return 0
-    cfg = mm_safety.config()
+    src = source_channel()
+    if not src:
+        return 0
     now_s = datetime.now(timezone.utc).isoformat()
     n = 0
     for tab in ("videos", "streams", "shorts"):
-        url = f"https://www.youtube.com/channel/{cfg['source_channel_id']}/{tab}"
+        url = f"https://www.youtube.com/channel/{src}/{tab}"
         try:
             with yt_dlp.YoutubeDL({"extract_flat": True, "quiet": True, "ignoreerrors": True}) as y:
                 info = y.extract_info(url, download=False) or {}
@@ -160,14 +194,16 @@ def check_new_uploads(con):
     row = con.execute("SELECT value FROM meta WHERE key='new_uploads_at'").fetchone()
     if row and datetime.now(timezone.utc) - datetime.fromisoformat(row[0]) < timedelta(hours=1):
         return []
-    cfg = mm_safety.config()
+    src = source_channel()
+    if not src:
+        return []
     known = {r[0] for r in con.execute("SELECT video_id FROM mm_library")}
     first_run = not known
     fresh = []
     for tab in ("videos", "streams"):
         try:
             with yt_dlp.YoutubeDL({"extract_flat": True, "quiet": True, "playlistend": 6, "ignoreerrors": True}) as y:
-                info = y.extract_info(f"https://www.youtube.com/channel/{cfg['source_channel_id']}/{tab}", download=False) or {}
+                info = y.extract_info(f"https://www.youtube.com/channel/{src}/{tab}", download=False) or {}
         except Exception as ex:
             print(f"[new-upload check failed for {tab}] {ex}")
             continue
@@ -331,7 +367,9 @@ def sync_sources(con, limit=None, downloads=None):
                 mixed.append(lst.pop(0))
     picks = [{"id": r[0], "title": r[1], "view_count": r[2], "_stream": bool(r[3])} for r in pri + mixed]
     if not picks:
-        print("Every video on the channel has been used. New uploads get picked up automatically.")
+        print("Every video on the channel has been used. New uploads get picked up automatically."
+              if mm_safety.config()["source_channel_id"] else
+              "No videos to clip yet: set your main channel (youtube_channel_id or youtube_handle in profile.json).")
     added = 0
     for e in picks[:downloads]:
         vid = e["id"]

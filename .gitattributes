@@ -1,0 +1,8 @@
+# Windows scripts need Windows line endings (cmd.exe mis-reads labels/goto in LF files)
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+*.vbs text eol=crlf
+# Mac/Linux scripts must keep LF
+*.sh text eol=lf
+*.command text eol=lf

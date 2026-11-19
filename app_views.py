@@ -7,6 +7,7 @@ import os
 import queue
 import sqlite3
 import subprocess
+import sys
 import threading
 import tkinter as tk
 from tkinter import messagebox, simpledialog, ttk
@@ -802,6 +803,45 @@ class HeldTab:
         self.msg.configure(text=f"Approved. '{r['title']}' goes out first on the next autopilot cycle.", fg=GOOD)
 
 
+# ======================= Post to... (shared) =======================
+def pick_platforms(app, title, kind, then, note=""):
+    """Checkboxes for the platforms that are connected + turned on (last pick pre-ticked). then(list) on OK."""
+    import mm_targets
+    ready = mm_targets.ready(kind)
+    if not ready:
+        why = "\n".join(f"• {mm_targets.NAMES[p].split(' (')[0]}: {w}" for p, w in mm_targets.missing(kind))
+        return messagebox.showinfo(title, "Nothing to post to yet.\n\n" + why, parent=app)
+    last = set(mm_targets.last(kind))
+    w = tk.Toplevel(app)
+    w.title(title)
+    w.configure(bg=PANEL)
+    w.transient(app)
+    tk.Label(w, text="POST TO", bg=PANEL, fg=FG, font=("Segoe UI Semibold", 12)).pack(anchor="w", padx=16, pady=(14, 4))
+    if note:
+        tk.Label(w, text=note, bg=PANEL, fg=MUTED, wraplength=px(420), justify="left").pack(anchor="w", padx=16)
+    vars_ = {}
+    for p in ready:
+        vars_[p] = tk.BooleanVar(value=p in last)
+        tk.Checkbutton(w, text=mm_targets.NAMES[p], variable=vars_[p], bg=PANEL, fg=FG, selectcolor=BG,
+                       activebackground=PANEL, activeforeground=FG, highlightthickness=0).pack(anchor="w", padx=16)
+    off = mm_targets.missing(kind)
+    if off:
+        tk.Label(w, bg=PANEL, fg=MUTED, justify="left", wraplength=px(420), text="Not available: " + "; ".join(
+            f"{mm_targets.NAMES[p].split(' (')[0]} ({why})" for p, why in off)).pack(anchor="w", padx=16, pady=(8, 0))
+
+    def ok():
+        chosen = [p for p, v in vars_.items() if v.get()]
+        if not chosen:
+            return messagebox.showinfo(title, "Tick at least one.", parent=w)
+        mm_targets.remember(kind, chosen)
+        w.destroy()
+        then(chosen)
+    row = tk.Frame(w, bg=PANEL)
+    row.pack(pady=14)
+    ttk.Button(row, text="Post", style="Go.TButton", command=ok).pack(side="left", padx=6)
+    ttk.Button(row, text="Cancel", command=w.destroy).pack(side="left", padx=6)
+
+
 # ======================= Upload a video =======================
 def upload_window(app):
     from tkinter import filedialog
@@ -831,12 +871,14 @@ def upload_window(app):
     desc = tk.Text(w, bg=LINE, fg=FG, insertbackground=FG, relief="flat", height=4, wrap="word", font=("Segoe UI", 11))
     desc.pack(fill="x", padx=16)
     tk.Label(w, text="Post to", bg=PANEL, fg=MUTED).pack(pady=(12, 2), **pad)
+    import mm_targets
     plats = {}
     prow = tk.Frame(w, bg=PANEL)
     prow.pack(fill="x", padx=16)
-    for key, name in (("youtube", "YouTube"), ("instagram", "Instagram"), ("facebook", "Facebook"),
-                      ("tiktok", "TikTok (ready in the TikTok tab)")):
-        plats[key] = tk.BooleanVar(value=True)
+    last = set(mm_targets.last("video"))
+    for key in mm_targets.ready("video"):
+        name = mm_targets.NAMES[key].replace(" (gets ready in the TikTok tab)", " (ready in the TikTok tab)")
+        plats[key] = tk.BooleanVar(value=key in last)
         tk.Checkbutton(prow, text=name, variable=plats[key], bg=PANEL, fg=FG, selectcolor=BG, activebackground=PANEL,
                        activeforeground=FG, highlightthickness=0).pack(side="left", padx=(0, 10))
     vert = tk.BooleanVar(value=True)
@@ -852,8 +894,12 @@ def upload_window(app):
         if not p or not os.path.exists(p):
             return messagebox.showinfo("Upload", "Pick a video file first.", parent=w)
         chosen = [k for k, var in plats.items() if var.get()]
+        if not plats:
+            return messagebox.showinfo("Upload", "No platform is connected and turned on yet (Settings -> Accounts).",
+                                       parent=w)
         if not chosen:
             return messagebox.showinfo("Upload", "Tick at least one platform.", parent=w)
+        mm_targets.remember("video", chosen)
         if not messagebox.askyesno("Upload", f"Post this video for REAL on {', '.join(chosen)}?", parent=w):
             return
         os.makedirs(os.path.join("media", "uploads"), exist_ok=True)
@@ -920,8 +966,43 @@ def custom_window(app):
             json.dump({"media": p or None, "text": text}, fh)
         what = os.path.basename(p) if p else (text[:40] if text else "random")
         w.destroy()
-        app.run(["machine.py", "custom", job], title=f"Custom: {what}", force_gpu=force)
+        app.run(["machine.py", "custom", job], title=f"Custom: {what}", force_gpu=force,
+                then=lambda: app.after(300, lambda: _offer_custom_post(app, job)))
     ttk.Button(w, text="✨  Generate", style="Go.TButton", command=go).pack(pady=16)
+
+
+def _offer_custom_post(app, job):
+    """After Custom content is made: optionally post it (you pick where)."""
+    try:
+        with open(job, encoding="utf-8") as fh:
+            res = json.load(fh).get("result")
+    except Exception:
+        res = None
+    if not res or not res.get("paths"):
+        return  # it failed or was stopped
+    kind = res["kind"]
+    if not messagebox.askyesno("Custom content", "Done! It's saved and open.\n\nPost it somewhere now?", parent=app):
+        return
+    cap = simpledialog.askstring("Caption", "Caption (edit it or leave it; empty = the AI writes one):",
+                                 initialvalue=res.get("caption", ""), parent=app)
+    if cap is None:
+        return
+
+    def go(ps):
+        out = os.path.join("media", "custom", "post.json")
+        if kind == "video":
+            with open(out, "w", encoding="utf-8") as fh:
+                json.dump({"path": res["paths"][0], "title": "", "caption": cap.strip(), "platforms": ps,
+                           "vertical": True}, fh)
+            app.run(["machine.py", "upload-video", out], live=True, title=f"Post custom video: {', '.join(ps)}",
+                    then=lambda: app.tiktok_tab.fill())
+        else:
+            with open(out, "w", encoding="utf-8") as fh:
+                json.dump({"paths": res["paths"], "caption": cap.strip(), "platforms": ps}, fh)
+            app.run(["machine.py", "post-image", out], live=True, title="Post custom picture: Instagram")
+    note = "This posts for real." + (" Pictures can go to Instagram (the others need a video)." if kind == "image"
+                                     else "")
+    pick_platforms(app, "Post it", kind, go, note=note)
 
 
 # ======================= Queue =======================
@@ -973,8 +1054,10 @@ class QueueTab:
 
     def post_now(self):
         cid = self._sel(self.clips)
-        if cid and messagebox.askyesno("Post now", f"Post clip {cid} to YouTube, TikTok and Instagram now (LIVE)?"):
-            self.app.run(["machine.py", "post-clip", cid], live=True, title=f"Post clip {cid} everywhere")
+        if cid:
+            pick_platforms(self.app, f"Post clip {cid}", "video", lambda ps: self.app.run(
+                ["machine.py", "post-clip", cid, ",".join(ps)], live=True,
+                title=f"Post clip {cid}: {', '.join(ps)}", then=self.fill), note="This posts for real.")
 
     def skip(self):
         cid = self._sel(self.clips)
@@ -1069,9 +1152,11 @@ class PeopleTab:
 
 # ======================= Settings editor =======================
 LABELS = {
+    "source_channel_id": "Main YouTube channel ID (clips come from it)",
+    "shorts_channel_id": "Shorts channel ID (set by Connect YouTube)",
     "gpu_mode": "GPU mode (auto / on / off)", "ai_video": "Autopilot makes fully-AI videos",
     "ai_videos_per_day": "Fully-AI videos per day (automatic)", "ai_quiet_minutes": "Minutes with no games before heavy AI",
-    "ai_video_scenes": "Shots per AI video (1-5, each ~3 min)", "start_with_windows": "Start the app when Windows starts",
+    "ai_video_scenes": "Shots per AI video (1-5, each ~3 min)", "start_with_windows": "Start the app when the computer starts",
     "source_mode": "Clip sources (random / picked)", "content_mode": "What to make (own / mix / trending)", "instagram_dms": "Auto-answer Instagram DMs", "self_critique": "Self-critic grades drafts before posting",
     "instagram_stories": "Also share Instagram posts to the Story", "alerts_enabled": "Phone alerts (ntfy)",
     "review_mode": "YouTube: keep uploads private for my review", "downloads_per_run": "Videos to download per run",
@@ -1079,10 +1164,10 @@ LABELS = {
     "delete_used_sources": "Delete downloaded videos after use", "ready_queue": "Clips to keep ready",
     "comfy_exe": "ComfyUI Desktop .exe (blank = find it)", "ollama_model": "Ollama model",
 }
-SKIP = {"instagram_id", "ntfy_topic", "shorts_channel_id", "comment", "ai_video_share", "source_channel_id",
-        "ai_min_share", "ai_max_share"}
+PLAT_LABELS = {"enabled": "On (autopilot posts here + shows in 'Post to')"}
+SKIP = {"instagram_id", "ntfy_topic", "comment", "ai_video_share", "ai_min_share", "ai_max_share"}
 DEFAULTS = {"self_critique": True, "ready_queue": 3, "comfy_exe": "", "ai_video": True, "ai_videos_per_day": 1,
-            "ai_quiet_minutes": 90, "ai_video_scenes": 3, "start_with_windows": True, "source_mode": "random"}
+            "ai_quiet_minutes": 90, "ai_video_scenes": 3, "start_with_windows": sys.platform != "darwin", "source_mode": "random"}
 
 
 def settings_window(root):
@@ -1129,7 +1214,7 @@ def settings_window(root):
         tk.Label(inner, text=plat.upper(), bg=BG, fg=ACCENT, font=("Segoe UI Semibold", 10)).pack(anchor="w", padx=14, pady=(12, 2))
         for k, v in pc.items():
             if not isinstance(v, (dict, list)) and not k.endswith("help"):
-                row(("platforms", plat, k), v, k.replace("_", " "), indent=10)
+                row(("platforms", plat, k), v, PLAT_LABELS.get(k, k.replace("_", " ")), indent=10)
 
     def save():
         for path, old, var in fields:

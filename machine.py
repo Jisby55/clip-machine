@@ -1360,16 +1360,19 @@ def force_threads():
 
 
 def force(what):
-    """Post NOW on one platform (or all), ignoring the daily schedule. Makes a clip first if none is ready."""
+    """Post NOW on the platforms you picked ("youtube,instagram" or "all" = every connected one), ignoring the daily
+    schedule. Makes a clip first if none is ready."""
+    import mm_targets
     c = con()
-    targets = ["threads", "youtube", "tiktok", "instagram", "facebook"] if what == "all" else [what]
+    targets = mm_targets.parse(what)
+    if not targets:
+        why = "; ".join(f"{p}: {w}" for p, w in mm_targets.missing()) or "none picked"
+        return print(f"Nothing to post to ({why}).")
     for t in targets:
         print(f"\n--- {t.upper()} ---", flush=True)
         try:
             if t == "threads":
                 force_threads()
-                continue
-            if t == "facebook" and not mm_safety.config()["platforms"].get("facebook", {}).get("enabled"):
                 continue
             if t in ("youtube", "tiktok", "facebook") and not next_clip_for(c, t):
                 print("No clip ready; making one first (can take a few minutes)...", flush=True)
@@ -1554,10 +1557,7 @@ def status():
 
 
 def set_gpu(mode):
-    cfg = mm_safety.config()
-    cfg["gpu_mode"] = mode
-    with open(mm_safety.CONFIG_FILE, "w", encoding="utf-8") as f:
-        json.dump(cfg, f, indent=2)
+    mm_safety.save_setting("gpu_mode", mode)
     print(f"GPU mode set to {mode}")
 
 
@@ -1573,10 +1573,14 @@ if __name__ == "__main__":
                          (int(sys.argv[2]),)).fetchone()
         if not clip:
             sys.exit("No such clip")
+        import mm_targets
         done = {r[0] for r in c.execute("SELECT platform FROM mm_posts WHERE clip_id=?", (clip[0],))}
+        want = mm_targets.parse(sys.argv[3] if len(sys.argv) > 3 else "all", "video")
+        for name in sorted(set(want) & done):
+            print(f"{name}: already posted this clip there")
         for name, fn, kw in (("youtube", post_youtube, {}), ("tiktok", post_tiktok, {}), ("facebook", post_facebook, {}),
                              ("instagram", post_instagram, {"kind": "reel"})):
-            if name in done or not mm_safety.config()["platforms"].get(name, {}).get("enabled"):
+            if name in done or name not in want:
                 continue
             print(f"\n--- {name.upper()} ---", flush=True)
             try:
@@ -1639,8 +1643,30 @@ if __name__ == "__main__":
             path = c.execute("SELECT path FROM mm_clips WHERE id=?", (cid,)).fetchone()[0]
             print(f"Saved: {os.path.abspath(path)}\nIt's in the Queue tab; the autopilot posts it on its schedule "
                   "(or press 'Post this clip now' there).")
-            if hasattr(os, "startfile"):
-                os.startfile(os.path.abspath(path))
+            compat.open_file(os.path.abspath(path))
+    elif cmd == "post-image" and len(sys.argv) >= 3:  # app: post one finished picture (Custom content) to Instagram
+        import mm_instagram
+        with open(sys.argv[2], encoding="utf-8") as f:
+            job = json.load(f)
+        c = con()
+        paths = [p for p in job.get("paths", []) if os.path.exists(p)]
+        if not paths:
+            sys.exit("Can't find the picture to post.")
+        if "instagram" not in job.get("platforms", []):
+            sys.exit("Pictures can only be posted to Instagram right now.")
+        caption = tb.tidy(job.get("caption") or "")
+        tags = mm_tags.make_hashtags(c, tb.ask, "instagram", caption or "a new post")
+        text = mm_tags.fit_caption("instagram", f"{caption}\n\n{' '.join(tags)}".strip())
+        if not tb.safety_check(text):
+            sys.exit("The caption didn't pass the safety check; edit it and try again.")
+        if os.environ.get("DRY_RUN", "1") != "0":
+            sys.exit(f"[DRY RUN] Instagram would post: {text}")
+        mid = mm_instagram.post_images(paths, text)
+        c.execute("INSERT INTO mm_posts (clip_id, platform, remote_id, posted_at, privacy, tags, title, kind, media) "
+                  "VALUES (?,?,?,?,?,?,?,?,?)", (None, "instagram", mid, now().isoformat(), "public", json.dumps(tags),
+                                                 caption[:95], "custom", json.dumps({"paths": paths})))
+        c.commit()
+        print(f"Instagram: posted your picture (id {mid})")
     elif cmd == "upload-video" and len(sys.argv) >= 3:  # app: upload your own video everywhere
         import mm_upload
         with open(sys.argv[2], encoding="utf-8") as f:
@@ -1678,8 +1704,7 @@ if __name__ == "__main__":
         if cid:
             path = c.execute("SELECT path FROM mm_clips WHERE id=?", (cid,)).fetchone()[0]
             print(f"Made clip {cid}: {os.path.abspath(path)} (it's in the Queue tab)")
-            if hasattr(os, "startfile"):
-                os.startfile(os.path.abspath(path))
+            compat.open_file(os.path.abspath(path))
         else:
             print("No clip made. If this video hasn't been downloaded yet, star it and press 'Download + find "
                   "moments' first.")
@@ -1692,8 +1717,7 @@ if __name__ == "__main__":
             out = os.path.abspath("voice_test.wav")
             mm_voice.speak(" ".join(sys.argv[2:]) or profile.get("sample_voice_line"), out)
             print(f"Saved: {out}")
-            if hasattr(os, "startfile"):
-                os.startfile(out)
+            compat.open_file(out)
     elif cmd == "ig-check":  # pull Instagram stats + reply to comments right now
         c = con()
         c.execute("DELETE FROM meta WHERE key='ig_stats_at'")
@@ -1708,12 +1732,20 @@ if __name__ == "__main__":
         produce(con(), force=True)
     elif cmd == "setup-youtube":
         import mm_youtube
-        mm_youtube.credentials(interactive=True)
+        mm_youtube.credentials(interactive=True, fresh=True)  # always ask, so you can pick a different channel
         cid, name = mm_youtube.whoami()
-        want = mm_safety.config()["shorts_channel_id"]
-        print(f"Connected to: {name} ({cid})")
-        if cid != want:
-            print(f"!! That's not the Shorts channel ({want}). Delete youtube_token.json and pick the right channel.")
+        if not cid:
+            sys.exit("Signed in, but that Google account has no YouTube channel. Make one on youtube.com (or pick "
+                     "a different account/brand channel when the browser asks), then connect again.")
+        before = mm_safety.config()["shorts_channel_id"]
+        mm_safety.save_setting("shorts_channel_id", cid)
+        print(f"Connected to: {name} ({cid})\nShorts will be uploaded to this channel.")
+        if before and before != cid:
+            print(f"(Before, Shorts were set to go to {before}. To use that channel instead, connect again and pick "
+                  "it in the browser.)")
+        if not mm_safety.config()["source_channel_id"] and not profile.handle():
+            print("Tip: also put your main channel's ID or @handle in profile.json so the machine knows which "
+                  "videos to make clips from.")
     elif cmd == "setup-tiktok":
         import mm_tiktok
         mm_tiktok.login()
@@ -1758,6 +1790,11 @@ if __name__ == "__main__":
         if item.get("note"):
             print(f"Note: {item['note']}")
         print("(Nothing was posted.)")
+        if rest and rest[0].lower().endswith(".json") and os.path.exists(rest[0]):
+            job["result"] = {"paths": [os.path.abspath(x) for x in item["paths"]], "caption": item.get("caption", ""),
+                             "kind": "video" if item["paths"][0].lower().endswith(".mp4") else "image"}
+            with open(rest[0], "w", encoding="utf-8") as fh:
+                json.dump(job, fh)
         compat.open_file(os.path.abspath(item["paths"][0]))
     elif cmd == "test-picture":  # make one Instagram picture locally (no posting) so you can look at it
         import mm_images
@@ -1768,7 +1805,7 @@ if __name__ == "__main__":
         item = maker(*args, mm_safety.config().get("ollama_model")) if kind == "ai_image" else maker(*args)
         print(json.dumps(item, indent=2) if item else "Couldn't make one (no unused moments / ComfyUI closed?)")
         if item:
-            os.startfile(os.path.abspath(item["paths"][0])) if hasattr(os, "startfile") else None
+            compat.open_file(os.path.abspath(item["paths"][0]))
     elif cmd == "gpu" and len(sys.argv) == 3 and sys.argv[2] in ("auto", "on", "off"):
         set_gpu(sys.argv[2])
     else:
